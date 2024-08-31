@@ -1,6 +1,10 @@
-# vectordb
+# VectorDB
 
-`vectordb` is a high-performance distributed database focused on vector searches using Approximate Nearest Neighbor Search (ANN) combined with support for filters, text search, and flexible document storage. Inspired by systems like Elasticsearch, but with a focus on high-dimensional vectors and scalability.
+![Under Development](https://img.shields.io/badge/status-under%20development-yellow)
+
+This project is in its early stages of development and is not ready for production use. Features are subject to change, and the documentation will be updated as development progresses.
+
+`VectorDB` is a high-performance distributed database focused on vector searches using Approximate Nearest Neighbor Search (ANN) combined with support for filters, text search, and flexible document storage. Inspired by systems like Elasticsearch, but with a focus on high-dimensional vectors and scalability.
 
 ## Goals
 
@@ -33,26 +37,32 @@
 
 ### Cloning the repository
 
-```bash
+```shell
 git clone https://github.com/jejung/vectordb.git
 cd vectordb
 ```
 
 ### Building the project
 
-```bash
+```shell
 cargo build
 ```
 
 ### Running locally (default setup)
 
-```bash
-cargo run
+Server:
+```shell
+cargo run --bin vectordbd
+```
+
+Cmd Client:
+```shell
+cargo run --bin vecdb
 ```
 
 ### Running tests
 
-```bash
+```shell
 cargo test
 ```
 
