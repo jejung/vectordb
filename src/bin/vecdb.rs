@@ -1,33 +1,18 @@
-use std::process::exit;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpSocket;
+use vectordb::client::VDBClient;
 
 #[tokio::main]
-async fn main() -> () {
+async fn main() -> std::io::Result<()> {
     let addr = "127.0.0.1:9999".parse().unwrap();
-    let socket = TcpSocket::new_v4().unwrap();
+    let socket = TcpSocket::new_v4()?;
     let mut stream = match socket.connect(addr).await {
         Ok(stream) => stream,
         Err(e) => {
-            println!("Failed to connect to server: {}", e);
-            return;
+            println!("Error connecting to server: {}", e);
+            return Err(e);
         }
     };
-
-    println!("Connected VectorDB running@127.0.0.1:9999");
-    println!("Sending hello world");
-
-    match stream.write(b"hello world").await {
-        Err(e) => panic!("{}", e),
-        Ok(len) => println!("Wrote {} bytes", len),
-    };
-
-    let mut buf = [0; 1024];
-    match stream.read(&mut buf).await {
-        Err(_) => {
-            println!("Failed to read from socket");
-            exit(1);
-        },
-        Ok(n) => println!("Received: {}", String::from_utf8_lossy(&buf[..n])),
-    };
+    VDBClient::connect(&mut stream).await?;
+    println!("Connected to the server@{:?}", stream.peer_addr()?);
+    Ok(())
 }
