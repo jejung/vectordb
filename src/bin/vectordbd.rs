@@ -13,7 +13,6 @@ async fn main() -> std::io::Result<()> {
         let (mut socket, _): (TcpStream, SocketAddr) = listener.accept().await?;
         tokio::spawn(async move {
             let mut conn = VDBConnection::new(&mut socket);
-            println!("Received connection, handling.");
             if let Err(e) = handle_conn(&mut conn).await {
                 println!("Error handling connection: {}", e);
                 conn.close().await;

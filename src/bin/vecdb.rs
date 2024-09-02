@@ -12,7 +12,7 @@ async fn main() -> std::io::Result<()> {
             return Err(e);
         }
     };
-    VDBClient::connect(&mut stream).await?;
-    println!("Connected to the server@{:?}", stream.peer_addr()?);
+    let vdb = VDBClient::connect(&mut stream).await?;
+    println!("Connected to VDB server: {:?}", vdb.server_info.unwrap());
     Ok(())
 }
