@@ -1,25 +1,26 @@
-use tokio::io::AsyncWriteExt;
+use crate::protocol::send_handshake;
+use crate::protocol::VDBPeerInfo;
 use tokio::net::TcpStream;
 
 pub struct VDBClient<'a> {
-    io: &'a mut TcpStream,
+    pub(crate) io: &'a mut TcpStream,
+    pub(crate) info: VDBPeerInfo,
+    pub server_info: Option<VDBPeerInfo>,
 }
 
 impl <'a> VDBClient<'a> {
 
-    async fn initialize(&mut self) -> std::io::Result<()> {
-        match self.io.write_all("VDB".as_bytes()).await {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e),
-        }
-    }
-
     pub async fn connect(io: &'a mut TcpStream) -> std::io::Result<Self> {
         let mut x = Self{
             io,
+            info: VDBPeerInfo{
+                version: env!("CARGO_PKG_VERSION").into(),
+                app_name: format!("{} SDK", env!("CARGO_PKG_NAME")),
+            },
+            server_info: None,
         };
 
-        x.initialize().await?;
+        send_handshake(&mut x).await?;
 
         Ok(x)
     }
