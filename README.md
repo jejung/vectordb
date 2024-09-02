@@ -35,6 +35,10 @@ This project is in its early stages of development and is not ready for producti
 - Rust (install via [rustup](https://rustup.rs/))
 - Cargo - Rust’s package manager
 
+### Versioning
+
+`VectorDB` is released under [BoringVer](https://medium.com/@klauswuestefeld/boringver-ad84d272a380).
+
 ### Cloning the repository
 
 ```shell
