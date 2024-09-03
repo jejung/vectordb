@@ -1,13 +1,33 @@
-use crate::client::VDBClient;
+use crate::client::VDBAsyncClient;
 use crate::VDBConnection;
 use rmp_serde::Serializer;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+use num_derive::{FromPrimitive, ToPrimitive};
+use num_traits::{FromPrimitive, ToPrimitive};
+
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct VDBPeerInfo {
     pub version: String,
     pub app_name: String,
+}
+
+#[derive(Debug, Eq, PartialEq, Deserialize, Serialize, FromPrimitive, ToPrimitive)]
+pub enum VDBCommandKind {
+    UNKNOWN = 0,
+    PING = 5,
+    DISCONNECT = 6,
+}
+
+pub struct VDBCommand {
+    pub kind: VDBCommandKind,
+    pub payload: Vec<u8>,
+}
+
+async fn command_carry_payload(kind: u8) -> bool {
+    kind != VDBCommandKind::PING.to_u8().unwrap()
+        && kind != VDBCommandKind::DISCONNECT.to_u8().unwrap()
 }
 
 pub async fn receive_handshake<'a>(conn: &mut VDBConnection<'a>) -> std::io::Result<()> {
@@ -52,7 +72,37 @@ pub async fn receive_handshake<'a>(conn: &mut VDBConnection<'a>) -> std::io::Res
     }
 }
 
-pub async fn send_handshake<'a>(client: &mut VDBClient<'a>) -> std::io::Result<()> {
+pub async fn receive_command(conn: &mut VDBConnection<'_>) -> std::io::Result<VDBCommand> {
+    let kind = VDBCommandKind::from_u8(conn.io.read_u8().await?).unwrap_or(VDBCommandKind::UNKNOWN);
+
+    if !command_carry_payload(kind.to_u8().unwrap()).await {
+        return Ok(
+            VDBCommand{
+                kind,
+                payload: vec![],
+            }
+        );
+    }
+
+    let payload_size = conn.io.read_u32().await?;
+    let mut buf = vec![0; payload_size as usize];
+    conn.io.read_exact(&mut buf).await?;
+    Ok(
+        VDBCommand{
+            kind,
+            payload: buf,
+        }
+    )
+}
+
+pub async fn send_response(conn: &mut VDBConnection<'_>, result_code: u16, payload: &[u8]) -> std::io::Result<()> {
+    conn.io.write_u16(result_code).await?;
+    conn.io.write_u32(payload.len() as u32).await?;
+    conn.io.write_all(payload).await?;
+    Ok(())
+}
+
+pub async fn send_handshake<'a>(client: &mut VDBAsyncClient<'a>) -> std::io::Result<()> {
     let mut payload = Vec::new();
     client.info.serialize(&mut Serializer::new(&mut payload).with_binary()).unwrap();
 
@@ -77,4 +127,27 @@ pub async fn send_handshake<'a>(client: &mut VDBClient<'a>) -> std::io::Result<(
         },
         Err(e) => Err(e),
     }
+}
+
+
+pub async fn send_command(conn: &mut VDBAsyncClient<'_>, command: &VDBCommand) -> std::io::Result<()> {
+    conn.io.write_u8(command.kind.to_u8().unwrap()).await?;
+    conn.io.write_all(command.payload.as_slice()).await?;
+    Ok(())
+}
+
+pub async fn receive_response(conn: &mut VDBAsyncClient<'_>) -> std::io::Result<Vec<u8>> {
+    let result_code = conn.io.read_u16().await?;
+    let size = conn.io.read_u32().await?;
+    let mut payload = vec![0; size as usize];
+    conn.io.read_exact(payload.as_mut_slice()).await?;
+
+    if result_code == 0 {
+        return Ok(payload);
+    }
+
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Other,
+        String::from_utf8_lossy(&payload).to_string(),
+    ))
 }

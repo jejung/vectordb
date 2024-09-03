@@ -1,5 +1,5 @@
 use tokio::net::TcpSocket;
-use vectordb::client::VDBClient;
+use vectordb::client::VDBAsyncClient;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
@@ -12,7 +12,10 @@ async fn main() -> std::io::Result<()> {
             return Err(e);
         }
     };
-    let vdb = VDBClient::connect(&mut stream).await?;
-    println!("Connected to VDB server: {:?}", vdb.server_info.unwrap());
+    let mut vdb = VDBAsyncClient::connect(&mut stream).await?;
+    println!("Connected to VDB server: {:?}", vdb.server_info.as_ref().unwrap());
+    let ping = vdb.ping().await?;
+    println!("{:?}", ping.content);
+    vdb.disconnect().await?;
     Ok(())
 }
