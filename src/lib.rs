@@ -1,3 +1,5 @@
+extern crate num_derive;
+
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use crate::protocol::VDBPeerInfo;

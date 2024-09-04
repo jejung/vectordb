@@ -1,14 +1,21 @@
-use crate::protocol::send_handshake;
 use crate::protocol::VDBPeerInfo;
+use crate::protocol::{receive_response, send_command, send_handshake, VDBCommand, VDBCommandKind};
 use tokio::net::TcpStream;
 
-pub struct VDBClient<'a> {
+
+pub struct VDBAsyncClient<'a> {
     pub(crate) io: &'a mut TcpStream,
     pub(crate) info: VDBPeerInfo,
     pub server_info: Option<VDBPeerInfo>,
 }
 
-impl <'a> VDBClient<'a> {
+pub struct VDBPingResponse {
+    pub success: bool,
+    pub content: String,
+    pub error: Option<String>,
+}
+
+impl <'a> VDBAsyncClient<'a> {
 
     pub async fn connect(io: &'a mut TcpStream) -> std::io::Result<Self> {
         let mut x = Self{
@@ -21,7 +28,33 @@ impl <'a> VDBClient<'a> {
         };
 
         send_handshake(&mut x).await?;
-
         Ok(x)
+    }
+
+    pub async fn ping(&mut self) -> std::io::Result<VDBPingResponse> {
+        send_command(self, &VDBCommand{
+            kind: VDBCommandKind::PING,
+            payload: vec![],
+        }).await?;
+
+        match receive_response(self).await {
+            Ok(payload) => Ok(VDBPingResponse{
+                success: true,
+                content: String::from_utf8_lossy(&payload).to_string(),
+                error: None,
+            }),
+            Err(e) => Ok(VDBPingResponse{
+                success: false,
+                content: String::new(),
+                error: Some(e.to_string()),
+            }),
+        }
+    }
+
+    pub async fn disconnect(&mut self) -> std::io::Result<()> {
+        send_command(self, &VDBCommand{
+            kind: VDBCommandKind::DISCONNECT,
+            payload: vec![],
+        }).await
     }
 }
