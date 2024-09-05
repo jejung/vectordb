@@ -16,6 +16,5 @@ async fn main() -> std::io::Result<()> {
     println!("Connected to VDB server: {:?}", vdb.server_info.as_ref().unwrap());
     let ping = vdb.ping().await?;
     println!("{:?}", ping.content);
-    vdb.disconnect().await?;
     Ok(())
 }

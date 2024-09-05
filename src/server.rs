@@ -13,6 +13,11 @@ pub async fn handle_conn(conn: &mut VDBConnection<'_>) -> std::io::Result<()> {
                     _=> send_response(conn, 2, format!("COMMAND NOT IMPLEMENTED: {:?}", command.kind).as_bytes()).await?
                 }
             },
+            Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => break,
+            Err(e) if e.kind() == std::io::ErrorKind::ConnectionAborted => break,
+            Err(e) if e.kind() == std::io::ErrorKind::ConnectionReset => break,
+            Err(e) if e.kind() == std::io::ErrorKind::NotConnected => break,
+            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
             Err(e) => {
                 println!("Error receiving command: {:?}", e);
                 send_response(conn, 1, format!("INVALID COMMAND: {:?}", e).as_bytes()).await?;
