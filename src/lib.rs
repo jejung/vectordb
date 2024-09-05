@@ -1,12 +1,13 @@
 extern crate num_derive;
 
+use crate::protocol::VDBPeerInfo;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
-use crate::protocol::VDBPeerInfo;
 
 pub mod server;
 pub mod protocol;
 pub mod client;
+mod datastructures;
 
 pub struct VDBConnection<'a> {
     pub(crate) io: &'a mut TcpStream,
