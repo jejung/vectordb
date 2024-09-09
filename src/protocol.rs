@@ -13,11 +13,22 @@ pub struct VDBPeerInfo {
     pub app_name: String,
 }
 
+#[repr(u16)]
 #[derive(Debug, Eq, PartialEq, Deserialize, Serialize, FromPrimitive, ToPrimitive)]
 pub enum VDBCommandKind {
     UNKNOWN = 0,
+    INSERT = 1,
     PING = 5,
     DISCONNECT = 6,
+}
+
+#[repr(u16)]
+#[derive(Debug, Eq, PartialEq, Deserialize, Serialize, FromPrimitive, ToPrimitive)]
+pub enum VDBOpResultCode {
+    Ok = 0,
+    InvalidPayload = 1,
+    CommandNotImplemented = 2,
+    UnknownCommand = 3,
 }
 
 pub struct VDBCommand {
@@ -95,8 +106,8 @@ pub async fn receive_command(conn: &mut VDBConnection<'_>) -> std::io::Result<VD
     )
 }
 
-pub async fn send_response(conn: &mut VDBConnection<'_>, result_code: u16, payload: &[u8]) -> std::io::Result<()> {
-    conn.io.write_u16(result_code).await?;
+pub async fn send_response(conn: &mut VDBConnection<'_>, result_code: &VDBOpResultCode, payload: &[u8]) -> std::io::Result<()> {
+    conn.io.write_u16(result_code.to_u16().unwrap()).await?;
     conn.io.write_u32(payload.len() as u32).await?;
     conn.io.write_all(payload).await?;
     Ok(())
@@ -104,7 +115,15 @@ pub async fn send_response(conn: &mut VDBConnection<'_>, result_code: u16, paylo
 
 pub async fn send_handshake<'a>(client: &mut VDBAsyncClient<'a>) -> std::io::Result<()> {
     let mut payload = Vec::new();
-    client.info.serialize(&mut Serializer::new(&mut payload).with_binary()).unwrap();
+    match client.info.serialize(&mut Serializer::new(&mut payload).with_binary()) {
+        Ok(()) => {},
+        Err(e) => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Could not serialize client info: {}", e)
+            ));
+        }
+    };
 
     client.io.write_all("VDB".as_bytes()).await?;
     client.io.write_u32(payload.len() as u32).await?;
@@ -129,10 +148,12 @@ pub async fn send_handshake<'a>(client: &mut VDBAsyncClient<'a>) -> std::io::Res
     }
 }
 
-
 pub async fn send_command(conn: &mut VDBAsyncClient<'_>, command: &VDBCommand) -> std::io::Result<()> {
     conn.io.write_u8(command.kind.to_u8().unwrap()).await?;
-    conn.io.write_all(command.payload.as_slice()).await?;
+    if command_carry_payload(command.kind.to_u8().unwrap()).await {
+        conn.io.write_u32(command.payload.len() as u32).await?;
+        conn.io.write_all(command.payload.as_slice()).await?;
+    }
     Ok(())
 }
 

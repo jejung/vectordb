@@ -1,5 +1,22 @@
-use crate::protocol::{receive_command, receive_handshake, send_response, VDBCommandKind};
+use crate::protocol::{receive_command, receive_handshake, send_response, VDBCommand, VDBCommandKind, VDBOpResultCode};
 use crate::VDBConnection;
+use rmpv::Value;
+
+
+async fn handle_insert(conn: &mut VDBConnection<'_>, cmd: &VDBCommand) -> std::io::Result<()> {
+    match rmp_serde::from_slice::<Value>(cmd.payload.as_slice()) {
+        Ok(_) => send_response(
+            conn,
+            &VDBOpResultCode::Ok,
+            &vec![],
+        ).await,
+        Err(e) => send_response(
+            conn,
+            &VDBOpResultCode::InvalidPayload,
+            format!("INVALID PAYLOAD: {:?}", e).as_bytes(),
+        ).await,
+    }
+}
 
 pub async fn handle_conn(conn: &mut VDBConnection<'_>) -> std::io::Result<()> {
     receive_handshake(conn).await?;
@@ -8,9 +25,18 @@ pub async fn handle_conn(conn: &mut VDBConnection<'_>) -> std::io::Result<()> {
         match receive_command(conn).await {
             Ok(command) => {
                 match command.kind {
-                    VDBCommandKind::PING => send_response(conn, 0, b"PONG").await?,
+                    VDBCommandKind::PING => send_response(
+                        conn,
+                        &VDBOpResultCode::Ok,
+                        b"PONG"
+                    ).await?,
                     VDBCommandKind::DISCONNECT => break,
-                    _=> send_response(conn, 2, format!("COMMAND NOT IMPLEMENTED: {:?}", command.kind).as_bytes()).await?
+                    VDBCommandKind::INSERT => handle_insert(conn, &command).await?,
+                    VDBCommandKind::UNKNOWN => send_response(
+                        conn,
+                        &VDBOpResultCode::UnknownCommand,
+                        format!("INVALID COMMAND: {:?}", command.kind).as_bytes(),
+                    ).await?
                 }
             },
             Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => break,
@@ -20,7 +46,11 @@ pub async fn handle_conn(conn: &mut VDBConnection<'_>) -> std::io::Result<()> {
             Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break,
             Err(e) => {
                 println!("Error receiving command: {:?}", e);
-                send_response(conn, 1, format!("INVALID COMMAND: {:?}", e).as_bytes()).await?;
+                send_response(
+                    conn,
+                    &VDBOpResultCode::InvalidPayload,
+                    format!("INVALID COMMAND: {:?}", e).as_bytes(),
+                ).await?;
             },
         }
     }

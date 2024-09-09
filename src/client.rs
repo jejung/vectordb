@@ -1,7 +1,7 @@
+use crate::datastructures::Document;
 use crate::protocol::VDBPeerInfo;
 use crate::protocol::{receive_response, send_command, send_handshake, VDBCommand, VDBCommandKind};
 use tokio::net::TcpStream;
-
 
 pub struct VDBAsyncClient<'a> {
     pub(crate) io: &'a mut TcpStream,
@@ -12,6 +12,11 @@ pub struct VDBAsyncClient<'a> {
 pub struct VDBPingResponse {
     pub success: bool,
     pub content: String,
+    pub error: Option<String>,
+}
+
+pub struct VDBInsertResponse {
+    pub success: bool,
     pub error: Option<String>,
 }
 
@@ -48,6 +53,26 @@ impl <'a> VDBAsyncClient<'a> {
                 content: String::new(),
                 error: Some(e.to_string()),
             }),
+        }
+    }
+
+    pub async fn insert(&mut self, data: &Vec<Document>) -> std::io::Result<VDBInsertResponse> {
+        match rmp_serde::to_vec_named(&data) {
+            Ok(payload) => {
+                send_command(self, &VDBCommand {
+                    kind: VDBCommandKind::INSERT,
+                    payload,
+                }).await?;
+
+                match receive_response(self).await {
+                    Ok(_) => Ok(VDBInsertResponse{success: true, error: None}),
+                    Err(e) => Ok(VDBInsertResponse{success: false, error: Some(e.to_string())}),
+                }
+            },
+            Err(e) => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Could not serialize documents {:?}", e),
+            )),
         }
     }
 

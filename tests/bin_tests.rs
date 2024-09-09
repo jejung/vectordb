@@ -1,3 +1,4 @@
+use std::io::{Read, Write};
 use std::process::{Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
@@ -10,23 +11,38 @@ fn test_server_accepts_connections() {
         .spawn()
         .expect("Could not start server");
 
-    sleep(Duration::from_secs(1));
-
-    let client_output = Command::new("target/debug/vecdb")
-        .stdin(Stdio::null())
+    let cli_command = Command::new("target/debug/vecdb")
+        .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .output()
-        .expect("Client failed");
+        .spawn()
+        .expect("Could not start cli");
+
+    let commands = b"\
+    PING\n\
+    INS [{\"vectors\": {}, \"fields\": []}]\n\
+    ";
+    cli_command.stdin
+        .expect("Could not connect to cli pipe")
+        .write_all(commands)
+        .expect("Could not write to cli pipe");
+
+    sleep(Duration::from_secs(1));
 
     server.kill().unwrap();
     let server_output = server.wait_with_output().unwrap();
 
-    let current_client_output = String::from_utf8_lossy(&client_output.stdout);
+    let mut current_client_output: Vec<u8> = Vec::new();
+    cli_command
+        .stdout
+        .expect("Could not connect to cli output").read_to_end(&mut current_client_output)
+        .expect("Could not read from cli output");
+
     let expected_client_output = "\
     Connected to VDB server: VDBPeerInfo { version: \"2024.9.1\", app_name: \"VectorDB\" }\n\
-    \"PONG\"\
+    PONG\n\
+    1 documents inserted.\n\
     ";
-    assert_eq!(current_client_output.trim(), expected_client_output);
+    assert_eq!(String::from_utf8_lossy(&current_client_output), expected_client_output);
 
     let current_server_output = String::from_utf8_lossy(&server_output.stdout);
     let expected_server_output = "\
