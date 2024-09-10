@@ -1,7 +1,5 @@
 use std::io::{Read, Write};
 use std::process::{Command, Stdio};
-use std::thread::sleep;
-use std::time::Duration;
 
 #[test]
 fn test_server_accepts_connections() {
@@ -26,16 +24,14 @@ fn test_server_accepts_connections() {
         .write_all(commands)
         .expect("Could not write to cli pipe");
 
-    sleep(Duration::from_secs(1));
-
-    server.kill().unwrap();
-    let server_output = server.wait_with_output().unwrap();
-
     let mut current_client_output: Vec<u8> = Vec::new();
     cli_command
         .stdout
         .expect("Could not connect to cli output").read_to_end(&mut current_client_output)
         .expect("Could not read from cli output");
+
+    server.kill().unwrap();
+    let server_output = server.wait_with_output().unwrap();
 
     let expected_client_output = "\
     Connected to VDB server: VDBPeerInfo { version: \"2024.9.1\", app_name: \"VectorDB\" }\n\
