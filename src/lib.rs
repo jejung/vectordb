@@ -7,7 +7,7 @@ use tokio::net::TcpStream;
 pub mod server;
 pub mod protocol;
 pub mod client;
-mod datastructures;
+pub mod datastructures;
 
 pub struct VDBConnection<'a> {
     pub(crate) io: &'a mut TcpStream,

@@ -1,6 +1,8 @@
+use std::str::SplitWhitespace;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use tokio::net::TcpSocket;
 use vectordb::client::VDBAsyncClient;
+use vectordb::datastructures::Document;
 
 async fn report_msg(msg: String) {
     let mut stdout = tokio::io::stdout();
@@ -12,6 +14,14 @@ async fn report_msg(msg: String) {
         let _ = stdout.write_all(b">> ").await;
     }
     let _ = stdout.flush().await;
+}
+
+async fn expect_no_args(it: &mut SplitWhitespace<'_>) -> bool {
+    if let Some(arg) = it.next() {
+        report_msg(format!("Expected no arguments, got: {}", arg)).await;
+        return false;
+    }
+    true
 }
 
 #[tokio::main]
@@ -40,23 +50,20 @@ async fn main() -> std::io::Result<()> {
             None => (),
             Some(command) => match command {
                 "INS" => {
-                    let mut all_documents = "".to_string();
-                    while let Some(arg) = command_and_rest.next()  {
-                        all_documents.push_str(&arg);
-                    }
-                    match all_documents.as_str() {
-                        "" => {
+                    match command_and_rest
+                        .fold(String::new(),|a, b| { a + " " + b }) {
+                        documents if documents.is_empty() => {
                             report_msg("Wrong number of arguments, expected DOCUMENTS.".to_string()).await;
                             continue;
                         },
                         documents => {
-                            match serde_json::from_str(documents) {
+                            match Document::many_from_json_str(&documents) {
                                 Ok(documents) => {
                                     match vdb.insert(&documents).await {
                                         Ok(response) => {
                                             match response.success {
                                                 true => report_msg(format!("{} documents inserted.", documents.len())).await,
-                                                false => report_msg(format!("Failed to insert documents: {}", response.error.unwrap_or(String::new()))).await,
+                                                false => report_msg(format!("Failed to insert documents: {:?}", response.error)).await,
                                             }
                                             continue;
                                         },
@@ -75,8 +82,7 @@ async fn main() -> std::io::Result<()> {
                     }
                 },
                 "PING" => {
-                    if let Some(arg) = command_and_rest.next() {
-                        report_msg(format!("Expected no arguments, got: {}", arg)).await;
+                    if !expect_no_args(&mut command_and_rest).await {
                         continue;
                     }
                     match vdb.ping().await {

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json;
 use std::collections::HashMap;
 
 pub(super) const _FLAG_STORE_ONLY: u32 = 0;
@@ -18,6 +19,20 @@ pub struct Document {
     id: Option<String>,
     fields: Vec<Field>,
     vectors: HashMap<String, Vec<f32>>,
+}
+
+impl Document {
+    pub fn many_from_json_str(json: &String) -> std::io::Result<Vec<Self>> {
+        match serde_json::from_str(json) {
+            Ok(data) => Ok(data),
+            Err(e) => Err(
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    e,
+                )
+            ),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
