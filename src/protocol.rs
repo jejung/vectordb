@@ -18,6 +18,7 @@ pub struct VDBPeerInfo {
 pub enum VDBCommandKind {
     UNKNOWN = 0,
     INSERT = 1,
+    UPDATE = 2,
     PING = 5,
     DISCONNECT = 6,
 }

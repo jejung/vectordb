@@ -24,6 +24,11 @@ async fn expect_no_args(it: &mut SplitWhitespace<'_>) -> bool {
     true
 }
 
+fn rejoin_spaces(splitted: &mut SplitWhitespace) -> String {
+    splitted
+        .fold(String::new(), |a, b| { a + " " + b })
+}
+
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     let addr = "127.0.0.1:9999".parse().unwrap();
@@ -50,8 +55,7 @@ async fn main() -> std::io::Result<()> {
             None => (),
             Some(command) => match command {
                 "INS" => {
-                    match command_and_rest
-                        .fold(String::new(),|a, b| { a + " " + b }) {
+                    match rejoin_spaces(&mut command_and_rest) {
                         documents if documents.is_empty() => {
                             report_msg("Wrong number of arguments, expected DOCUMENTS.".to_string()).await;
                             continue;
@@ -73,6 +77,37 @@ async fn main() -> std::io::Result<()> {
                                         }
                                     }
                                 }
+                                Err(e) => {
+                                    report_msg(format!("Could not parse documents, invalid JSON: {}", e)).await;
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                },
+                "UPD" => {
+                    match rejoin_spaces(&mut command_and_rest) {
+                        documents if documents.is_empty() => {
+                            report_msg("Wrong number of arguments, expected DOCUMENTS.".to_string()).await;
+                            continue;
+                        }
+                        documents => {
+                            match Document::many_from_json_str(&documents) {
+                                Ok(documents) => {
+                                    match vdb.update(&documents).await {
+                                        Ok(response) => {
+                                            match response.success {
+                                                true => report_msg(format!("{} documents updated.", documents.len())).await,
+                                                false => report_msg(format!("Failed to update documents: {:?}", response.error)).await,
+                                            }
+                                            continue;
+                                        },
+                                        Err(e) => {
+                                            report_msg(format!("Could not update documents: {}", e)).await;
+                                            continue;
+                                        }
+                                    }
+                                },
                                 Err(e) => {
                                     report_msg(format!("Could not parse documents, invalid JSON: {}", e)).await;
                                     continue;
