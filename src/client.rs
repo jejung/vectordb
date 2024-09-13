@@ -20,6 +20,11 @@ pub struct VDBInsertResponse {
     pub error: Option<String>,
 }
 
+pub struct VDBUpdateResponse {
+    pub success: bool,
+    pub error: Option<String>,
+}
+
 impl <'a> VDBAsyncClient<'a> {
 
     pub async fn connect(io: &'a mut TcpStream) -> std::io::Result<Self> {
@@ -73,6 +78,26 @@ impl <'a> VDBAsyncClient<'a> {
                 std::io::ErrorKind::InvalidData,
                 format!("Could not serialize documents {:?}", e),
             )),
+        }
+    }
+
+    pub async fn update(&mut self, data: &Vec<Document>) -> std::io::Result<VDBUpdateResponse> {
+        match rmp_serde::to_vec_named(&data) {
+            Ok(payload) => {
+                send_command(self, &VDBCommand {
+                    kind: VDBCommandKind::UPDATE,
+                    payload,
+                }).await?;
+
+                match receive_response(self).await {
+                    Ok(_) => Ok(VDBUpdateResponse{success: true, error: None}),
+                    Err(e) => Ok(VDBUpdateResponse{success: false, error: Some(e.to_string())}),
+                }
+            }
+            Err(e) => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Could not serialize documents {:?}", e),
+            ))
         }
     }
 

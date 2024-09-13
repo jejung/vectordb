@@ -18,6 +18,7 @@ fn test_server_accepts_connections() {
     let commands = b"\
     PING\n\
     INS [{\"vectors\": {}, \"fields\": []}]\n\
+    UPD [{\"id\":\"efdsaa\",\"vectors\": {}, \"fields\": []}]\n\
     ";
     cli_command.stdin
         .expect("Could not connect to cli pipe")
@@ -37,6 +38,7 @@ fn test_server_accepts_connections() {
     Connected to VDB server: VDBPeerInfo { version: \"2024.9.1\", app_name: \"VectorDB\" }\n\
     PONG\n\
     1 documents inserted.\n\
+    1 documents updated.\n\
     ";
     assert_eq!(String::from_utf8_lossy(&current_client_output), expected_client_output);
 
