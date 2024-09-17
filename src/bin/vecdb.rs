@@ -116,6 +116,25 @@ async fn main() -> std::io::Result<()> {
                         }
                     }
                 },
+                "DEL" => {
+                    match command_and_rest.collect() {
+                        ids => {
+                            match vdb.delete(&ids).await {
+                                Ok(response) => {
+                                    match response.success {
+                                        true => report_msg(format!("{} documents deleted.", ids.len())).await,
+                                        false => report_msg(format!("Failed to delete documents: {:?}", response.error)).await,
+                                    }
+                                    continue;
+                                },
+                                Err(e) => {
+                                    report_msg(format!("Could not update documents: {}", e)).await;
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                },
                 "PING" => {
                     if !expect_no_args(&mut command_and_rest).await {
                         continue;

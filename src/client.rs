@@ -25,6 +25,11 @@ pub struct VDBUpdateResponse {
     pub error: Option<String>,
 }
 
+pub struct VDBDeleteResponse {
+    pub success: bool,
+    pub error: Option<String>,
+}
+
 impl <'a> VDBAsyncClient<'a> {
 
     pub async fn connect(io: &'a mut TcpStream) -> std::io::Result<Self> {
@@ -92,6 +97,26 @@ impl <'a> VDBAsyncClient<'a> {
                 match receive_response(self).await {
                     Ok(_) => Ok(VDBUpdateResponse{success: true, error: None}),
                     Err(e) => Ok(VDBUpdateResponse{success: false, error: Some(e.to_string())}),
+                }
+            }
+            Err(e) => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Could not serialize documents {:?}", e),
+            ))
+        }
+    }
+
+    pub async fn delete(&mut self, data: &Vec<&str>) -> std::io::Result<VDBDeleteResponse> {
+        match rmp_serde::to_vec(&data) {
+            Ok(payload) => {
+                send_command(self, &VDBCommand {
+                    kind: VDBCommandKind::DELETE,
+                    payload,
+                }).await?;
+
+                match receive_response(self).await {
+                    Ok(_) => Ok(VDBDeleteResponse{success: true, error: None}),
+                    Err(e) => Ok(VDBDeleteResponse{success: false, error: Some(e.to_string())}),
                 }
             }
             Err(e) => Err(std::io::Error::new(

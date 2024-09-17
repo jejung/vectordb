@@ -19,6 +19,7 @@ pub enum VDBCommandKind {
     UNKNOWN = 0,
     INSERT = 1,
     UPDATE = 2,
+    DELETE = 3,
     PING = 5,
     DISCONNECT = 6,
 }

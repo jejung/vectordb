@@ -32,6 +32,21 @@ async fn handle_insert(conn: &mut VDBConnection<'_>, cmd: &VDBCommand) -> std::i
     }
 }
 
+async fn handle_delete(conn: &mut VDBConnection<'_>, cmd: &VDBCommand) -> std::io::Result<()> {
+    match rmp_serde::from_slice::<Vec<String>>(cmd.payload.as_slice()) {
+        Ok(_) => send_response(
+            conn,
+            &VDBOpResultCode::Ok,
+            &vec![],
+        ).await,
+        Err(e) => send_response(
+            conn,
+            &VDBOpResultCode::InvalidPayload,
+            format!("INVALID PAYLOAD: {:?}", e).as_bytes(),
+        ).await,
+    }
+}
+
 pub async fn handle_conn(conn: &mut VDBConnection<'_>) -> std::io::Result<()> {
     receive_handshake(conn).await?;
     println!("Client connected: {:?}", conn.client_info.as_ref().unwrap());
@@ -47,6 +62,7 @@ pub async fn handle_conn(conn: &mut VDBConnection<'_>) -> std::io::Result<()> {
                     VDBCommandKind::DISCONNECT => break,
                     VDBCommandKind::INSERT => handle_insert(conn, &command).await?,
                     VDBCommandKind::UPDATE => handle_update(conn, &command).await?,
+                    VDBCommandKind::DELETE => handle_delete(conn, &command).await?,
                     VDBCommandKind::UNKNOWN => send_response(
                         conn,
                         &VDBOpResultCode::UnknownCommand,
